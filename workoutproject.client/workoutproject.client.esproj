@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.VisualStudio.JavaScript.Sdk/1.0.2752196">
+  <PropertyGroup>
+    <StartupCommand>npm run dev</StartupCommand>
+    <JavaScriptTestRoot>src\</JavaScriptTestRoot>
+    <JavaScriptTestFramework>Vitest</JavaScriptTestFramework>
+    <!-- Allows the build (or compile) script located on package.json to run on Build -->
+    <ShouldRunBuildScript>false</ShouldRunBuildScript>
+    <!-- Folder where production build objects will be placed -->
+    <BuildOutputFolder>$(MSBuildProjectDirectory)\dist</BuildOutputFolder>
+  </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="src\app\providers\" />
+    <Folder Include="src\app\store\" />
+    <Folder Include="src\app\styles\" />
+    <Folder Include="src\entitites\exercise\" />
+    <Folder Include="src\entitites\nutrition\" />
+    <Folder Include="src\entitites\user\" />
+    <Folder Include="src\entitites\workout\" />
+    <Folder Include="src\features\analytics\" />
+    <Folder Include="src\features\auth\" />
+    <Folder Include="src\features\messaging\" />
+    <Folder Include="src\features\training\" />
+    <Folder Include="src\pages\athletes\" />
+    <Folder Include="src\pages\dashboard\" />
+    <Folder Include="src\pages\settings\" />
+    <Folder Include="src\pages\workouts\" />
+    <Folder Include="src\shared\api\" />
+    <Folder Include="src\shared\components\" />
+    <Folder Include="src\shared\hooks\" />
+    <Folder Include="src\shared\lib\" />
+    <Folder Include="src\shared\utils\" />
+    <Folder Include="src\widgets\header\" />
+    <Folder Include="src\widgets\modals\" />
+    <Folder Include="src\widgets\sidebar\" />
+  </ItemGroup>
+</Project>
