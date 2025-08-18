@@ -1,58 +1,21 @@
-import { useEffect, useState } from 'react';
-import './App.css';
+import React from 'react';
+import { useAuth } from './context/AuthContext';
+import Login from './components/Login';
 
-interface Forecast {
-    date: string;
-    temperatureC: number;
-    temperatureF: number;
-    summary: string;
-}
+const App: React.FC = () => {
+  const { tokens, logout } = useAuth();
 
-function App() {
-    const [forecasts, setForecasts] = useState<Forecast[]>();
+  if (!tokens) {
+    return <Login />;
+  }
 
-    useEffect(() => {
-        populateWeatherData();
-    }, []);
-
-    const contents = forecasts === undefined
-        ? <p><em>Loading... Please refresh once the ASP.NET backend has started. See <a href="https://aka.ms/jspsintegrationreact">https://aka.ms/jspsintegrationreact</a> for more details.</em></p>
-        : <table className="table table-striped" aria-labelledby="tableLabel">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Temp. (C)</th>
-                    <th>Temp. (F)</th>
-                    <th>Summary</th>
-                </tr>
-            </thead>
-            <tbody>
-                {forecasts.map(forecast =>
-                    <tr key={forecast.date}>
-                        <td>{forecast.date}</td>
-                        <td>{forecast.temperatureC}</td>
-                        <td>{forecast.temperatureF}</td>
-                        <td>{forecast.summary}</td>
-                    </tr>
-                )}
-            </tbody>
-        </table>;
-
-    return (
-        <div>
-            <h1 id="tableLabel">Weather forecast</h1>
-            <p>This component demonstrates fetching data from the server.</p>
-            {contents}
-        </div>
-    );
-
-    async function populateWeatherData() {
-        const response = await fetch('https://localhost:7207/weatherforecast');
-        if (response.ok) {
-            const data = await response.json();
-            setForecasts(data);
-        }
-    }
-}
+  return (
+    <div style={{ padding: '1rem' }}>
+      <h1>Authenticated</h1>
+      <p>Access token: {tokens.accessToken}</p>
+      <button onClick={logout}>Logout</button>
+    </div>
+  );
+};
 
 export default App;
