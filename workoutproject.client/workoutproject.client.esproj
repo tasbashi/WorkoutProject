@@ -9,13 +9,11 @@
     <BuildOutputFolder>$(MSBuildProjectDirectory)\dist</BuildOutputFolder>
   </PropertyGroup>
   <ItemGroup>
+    <Folder Include="src\api\" />
     <Folder Include="src\app\providers\" />
     <Folder Include="src\app\store\" />
     <Folder Include="src\app\styles\" />
-    <Folder Include="src\entitites\exercise\" />
-    <Folder Include="src\entitites\nutrition\" />
-    <Folder Include="src\entitites\user\" />
-    <Folder Include="src\entitites\workout\" />
+    <Folder Include="src\entities\user\model\" />
     <Folder Include="src\features\analytics\" />
     <Folder Include="src\features\auth\" />
     <Folder Include="src\features\messaging\" />
@@ -24,7 +22,6 @@
     <Folder Include="src\pages\dashboard\" />
     <Folder Include="src\pages\settings\" />
     <Folder Include="src\pages\workouts\" />
-    <Folder Include="src\shared\api\" />
     <Folder Include="src\shared\components\" />
     <Folder Include="src\shared\hooks\" />
     <Folder Include="src\shared\lib\" />

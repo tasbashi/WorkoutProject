@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from './context/AuthContext';
-import Login from './components/Login';
+import Login from './features/Auth/components/Login';
 
 const App: React.FC = () => {
   const { tokens, logout } = useAuth();

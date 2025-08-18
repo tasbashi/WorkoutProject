@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
-import type { Tokens } from '../api/auth';
-import { getStoredTokens, login as apiLogin, clearTokens } from '../api/auth';
+import type { Tokens } from '../shared/api/auth';
+import { getStoredTokens, login as apiLogin, clearTokens } from '../shared/api/auth';
 
 interface AuthContextValue {
   tokens: Tokens | null;

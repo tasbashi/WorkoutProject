@@ -1,3 +1,4 @@
+
 export interface Tokens {
   accessToken: string;
   refreshToken: string;
@@ -5,6 +6,7 @@ export interface Tokens {
 
 const ACCESS_TOKEN_KEY = 'accessToken';
 const REFRESH_TOKEN_KEY = 'refreshToken';
+
 
 export function getStoredTokens(): Tokens | null {
   const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -24,7 +26,7 @@ export function clearTokens() {
 }
 
 export async function login(username: string, password: string): Promise<Tokens> {
-  const response = await fetch('/api/auth/login', {
+  const response = await fetch('https://localhost:7207/api/auth/login', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
