@@ -12,35 +12,19 @@ namespace WorkoutProject.Infrastructure.Services;
 /// <summary>
 /// Service for authentication operations
 /// </summary>
-public class AuthService : IAuthService
+public class AuthService(
+    ApplicationDbContext context,
+    ITokenService tokenService,
+    IEmailService emailService,
+    IPasswordHasher<User> passwordHasher,
+    IMapper mapper,
+    ILogger<AuthService> logger)
+    : IAuthService
 {
-    private readonly ApplicationDbContext _context;
-    private readonly ITokenService _tokenService;
-    private readonly IEmailService _emailService;
-    private readonly IPasswordHasher<User> _passwordHasher;
-    private readonly IMapper _mapper;
-    private readonly ILogger<AuthService> _logger;
-
-    public AuthService(
-        ApplicationDbContext context,
-        ITokenService tokenService,
-        IEmailService emailService,
-        IPasswordHasher<User> passwordHasher,
-        IMapper mapper,
-        ILogger<AuthService> logger)
-    {
-        _context = context;
-        _tokenService = tokenService;
-        _emailService = emailService;
-        _passwordHasher = passwordHasher;
-        _mapper = mapper;
-        _logger = logger;
-    }
-
     public async Task<LoginResponseDto> LoginAsync(string username, string password, string? ipAddress = null, string? userAgent = null)
     {
         // Find user by username or email
-        var user = await _context.Users
+        var user = await context.Users
             .Include(u => u.UserRoles)
             .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => 
@@ -60,7 +44,7 @@ public class AuthService : IAuthService
         }
 
         // Verify password
-        var passwordVerificationResult = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+        var passwordVerificationResult = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
         if (passwordVerificationResult == PasswordVerificationResult.Failed)
         {
             // Increment access failed count
@@ -70,10 +54,10 @@ public class AuthService : IAuthService
             if (user.AccessFailedCount >= 5)
             {
                 user.LockoutEnd = DateTimeOffset.UtcNow.AddMinutes(15);
-                _logger.LogWarning("Account locked for user {Username} due to too many failed attempts", username);
+                logger.LogWarning("Account locked for user {Username} due to too many failed attempts", username);
             }
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             throw new UnauthorizedAccessException("Invalid username or password");
         }
 
@@ -86,9 +70,9 @@ public class AuthService : IAuthService
         var roles = user.UserRoles.Where(ur => ur.IsActive).Select(ur => ur.Role.Name).ToList();
         var permissions = GetUserPermissions(user);
         
-        var accessToken = _tokenService.GenerateAccessToken(user, roles, permissions);
-        var refreshToken = _tokenService.GenerateRefreshToken();
-        var jwtId = _tokenService.GetJwtIdFromToken(accessToken);
+        var accessToken = tokenService.GenerateAccessToken(user, roles, permissions);
+        var refreshToken = tokenService.GenerateRefreshToken();
+        var jwtId = tokenService.GetJwtIdFromToken(accessToken);
 
         // Save refresh token
         var refreshTokenEntity = new RefreshToken
@@ -101,16 +85,16 @@ public class AuthService : IAuthService
             UpdatedBy = user.Id
         };
 
-        _context.RefreshTokens.Add(refreshTokenEntity);
-        await _context.SaveChangesAsync();
+        context.RefreshTokens.Add(refreshTokenEntity);
+        await context.SaveChangesAsync();
 
-        var userDto = _mapper.Map<UserDto>(user);
+        var userDto = mapper.Map<UserDto>(user);
         
         return new LoginResponseDto
         {
             AccessToken = accessToken,
             RefreshToken = refreshToken,
-            ExpiresIn = _tokenService.GetTokenExpirationSeconds(),
+            ExpiresIn = tokenService.GetTokenExpirationSeconds(),
             User = userDto
         };
     }
@@ -119,19 +103,19 @@ public class AuthService : IAuthService
         string firstName, string lastName, string role, string? ipAddress = null, string? userAgent = null)
     {
         // Check if username already exists
-        if (await _context.Users.AnyAsync(u => u.Username == username))
+        if (await context.Users.AnyAsync(u => u.Username == username))
         {
             throw new InvalidOperationException("Username already exists");
         }
 
         // Check if email already exists
-        if (await _context.Users.AnyAsync(u => u.Email == email))
+        if (await context.Users.AnyAsync(u => u.Email == email))
         {
             throw new InvalidOperationException("Email already exists");
         }
 
         // Validate role
-        var roleEntity = await _context.Roles.FirstOrDefaultAsync(r => r.Name == role && r.IsActive);
+        var roleEntity = await context.Roles.FirstOrDefaultAsync(r => r.Name == role && r.IsActive);
         if (roleEntity == null)
         {
             throw new InvalidOperationException("Invalid role specified");
@@ -149,11 +133,11 @@ public class AuthService : IAuthService
             UpdatedBy = Guid.Empty
         };
 
-        user.PasswordHash = _passwordHasher.HashPassword(user, password);
+        user.PasswordHash = passwordHasher.HashPassword(user, password);
 
         // Add user to database
-        _context.Users.Add(user);
-        await _context.SaveChangesAsync();
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
 
         // Assign role
         var userRole = new UserRole
@@ -163,17 +147,17 @@ public class AuthService : IAuthService
             AssignedBy = user.Id
         };
 
-        _context.UserRoles.Add(userRole);
-        await _context.SaveChangesAsync();
+        context.UserRoles.Add(userRole);
+        await context.SaveChangesAsync();
 
         // Send welcome email
         try
         {
-            await _emailService.SendWelcomeEmailAsync(email, firstName);
+            await emailService.SendWelcomeEmailAsync(email, firstName);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to send welcome email to {Email}", email);
+            logger.LogWarning(ex, "Failed to send welcome email to {Email}", email);
         }
 
         // Login the user immediately after registration
@@ -183,14 +167,14 @@ public class AuthService : IAuthService
     public async Task<LoginResponseDto> RefreshTokenAsync(string accessToken, string refreshToken, string? ipAddress = null, string? userAgent = null)
     {
         // Get JWT ID from access token
-        var jwtId = _tokenService.GetJwtIdFromToken(accessToken);
+        var jwtId = tokenService.GetJwtIdFromToken(accessToken);
         if (string.IsNullOrEmpty(jwtId))
         {
             throw new UnauthorizedAccessException("Invalid access token");
         }
 
         // Find refresh token
-        var refreshTokenEntity = await _context.RefreshTokens
+        var refreshTokenEntity = await context.RefreshTokens
             .Include(rt => rt.User)
             .ThenInclude(u => u.UserRoles)
             .ThenInclude(ur => ur.Role)
@@ -218,9 +202,9 @@ public class AuthService : IAuthService
         var roles = refreshTokenEntity.User.UserRoles.Where(ur => ur.IsActive).Select(ur => ur.Role.Name).ToList();
         var permissions = GetUserPermissions(refreshTokenEntity.User);
         
-        var newAccessToken = _tokenService.GenerateAccessToken(refreshTokenEntity.User, roles, permissions);
-        var newRefreshToken = _tokenService.GenerateRefreshToken();
-        var newJwtId = _tokenService.GetJwtIdFromToken(newAccessToken);
+        var newAccessToken = tokenService.GenerateAccessToken(refreshTokenEntity.User, roles, permissions);
+        var newRefreshToken = tokenService.GenerateRefreshToken();
+        var newJwtId = tokenService.GetJwtIdFromToken(newAccessToken);
 
         // Create new refresh token
         var newRefreshTokenEntity = new RefreshToken
@@ -236,23 +220,23 @@ public class AuthService : IAuthService
         // Link tokens for audit trail
         refreshTokenEntity.ReplacedByToken = newRefreshToken;
 
-        _context.RefreshTokens.Add(newRefreshTokenEntity);
-        await _context.SaveChangesAsync();
+        context.RefreshTokens.Add(newRefreshTokenEntity);
+        await context.SaveChangesAsync();
 
-        var userDto = _mapper.Map<UserDto>(refreshTokenEntity.User);
+        var userDto = mapper.Map<UserDto>(refreshTokenEntity.User);
 
         return new LoginResponseDto
         {
             AccessToken = newAccessToken,
             RefreshToken = newRefreshToken,
-            ExpiresIn = _tokenService.GetTokenExpirationSeconds(),
+            ExpiresIn = tokenService.GetTokenExpirationSeconds(),
             User = userDto
         };
     }
 
     public async Task<bool> RevokeTokenAsync(string refreshToken, string? ipAddress = null)
     {
-        var refreshTokenEntity = await _context.RefreshTokens
+        var refreshTokenEntity = await context.RefreshTokens
             .FirstOrDefaultAsync(rt => rt.Token == refreshToken);
 
         if (refreshTokenEntity == null || refreshTokenEntity.IsRevoked)
@@ -264,13 +248,13 @@ public class AuthService : IAuthService
         refreshTokenEntity.RevokedAt = DateTimeOffset.UtcNow;
         refreshTokenEntity.RevokedByIp = ipAddress;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return true;
     }
 
     public async Task<bool> RevokeAllTokensAsync(Guid userId, string? ipAddress = null)
     {
-        var refreshTokens = await _context.RefreshTokens
+        var refreshTokens = await context.RefreshTokens
             .Where(rt => rt.UserId == userId && !rt.IsRevoked)
             .ToListAsync();
 
@@ -281,13 +265,13 @@ public class AuthService : IAuthService
             token.RevokedByIp = ipAddress;
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return true;
     }
 
     public async Task<bool> ForgotPasswordAsync(string email, string baseUrl)
     {
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email && u.IsActive && !u.IsDeleted);
+        var user = await context.Users.FirstOrDefaultAsync(u => u.Email == email && u.IsActive && !u.IsDeleted);
         if (user == null)
         {
             // Don't reveal that user doesn't exist
@@ -296,18 +280,18 @@ public class AuthService : IAuthService
 
         // Generate reset token (use security stamp as token)
         user.SecurityStamp = Guid.NewGuid().ToString();
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
         // Create reset link
         var resetLink = $"{baseUrl}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(user.SecurityStamp)}";
 
         // Send email
-        return await _emailService.SendPasswordResetEmailAsync(email, resetLink, user.FirstName);
+        return await emailService.SendPasswordResetEmailAsync(email, resetLink, user.FirstName);
     }
 
     public async Task<bool> ResetPasswordAsync(string email, string token, string newPassword)
     {
-        var user = await _context.Users.FirstOrDefaultAsync(u => 
+        var user = await context.Users.FirstOrDefaultAsync(u => 
             u.Email == email && 
             u.SecurityStamp == token && 
             u.IsActive && 
@@ -319,13 +303,13 @@ public class AuthService : IAuthService
         }
 
         // Reset password
-        user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
+        user.PasswordHash = passwordHasher.HashPassword(user, newPassword);
         user.SecurityStamp = Guid.NewGuid().ToString(); // Invalidate all existing tokens
         user.AccessFailedCount = 0;
         user.LockoutEnd = null;
 
         // Revoke all refresh tokens
-        var refreshTokens = await _context.RefreshTokens
+        var refreshTokens = await context.RefreshTokens
             .Where(rt => rt.UserId == user.Id && !rt.IsRevoked)
             .ToListAsync();
 
@@ -335,18 +319,18 @@ public class AuthService : IAuthService
             refreshToken.RevokedAt = DateTimeOffset.UtcNow;
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return true;
     }
 
     public async Task<UserDto?> GetUserByIdAsync(Guid userId)
     {
-        var user = await _context.Users
+        var user = await context.Users
             .Include(u => u.UserRoles)
             .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive && !u.IsDeleted);
 
-        return user != null ? _mapper.Map<UserDto>(user) : null;
+        return user != null ? mapper.Map<UserDto>(user) : null;
     }
 
     public bool ValidatePassword(string password)
@@ -368,13 +352,13 @@ public class AuthService : IAuthService
     public string HashPassword(string password)
     {
         var user = new User(); // Temporary user for hashing
-        return _passwordHasher.HashPassword(user, password);
+        return passwordHasher.HashPassword(user, password);
     }
 
     public bool VerifyPassword(string password, string hash)
     {
         var user = new User(); // Temporary user for verification
-        var result = _passwordHasher.VerifyHashedPassword(user, hash, password);
+        var result = passwordHasher.VerifyHashedPassword(user, hash, password);
         return result == PasswordVerificationResult.Success;
     }
 
